@@ -91,12 +91,13 @@
         <h2 id="authTitle">Gebruik je account op elk apparaat</h2>
         <p id="authDescription">Log in om je watchlist en filters automatisch te synchroniseren.</p>
         <form id="authForm">
-          <label>E-mailadres<input id="authEmail" type="email" autocomplete="email" required placeholder="jij@voorbeeld.nl" /></label>
-          <label>Wachtwoord<input id="authPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="Minimaal 8 tekens" /></label>
+          <label id="authEmailLabel">E-mailadres<input id="authEmail" name="email" type="email" autocomplete="email" required placeholder="jij@voorbeeld.nl" /></label>
+          <label>Wachtwoord<input id="authPassword" name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="Minimaal 8 tekens" /></label>
           <p id="authMessage" class="auth-message" aria-live="polite"></p>
           <button id="authSubmit" class="auth-submit" type="submit">Inloggen</button>
         </form>
         <button id="authSwitch" class="text-button auth-switch" type="button">Nog geen account? Account maken</button>
+        <button id="forgotPassword" class="text-button forgot-password" type="button">Wachtwoord vergeten?</button>
       </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

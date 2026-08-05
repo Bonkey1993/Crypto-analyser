@@ -17,6 +17,7 @@ let watchlist = JSON.parse(localStorage.getItem("cryptoFocusWatchlist") || "[]")
 const supabaseClient = window.supabase.createClient(window.CRYPTO_FOCUS_SUPABASE_URL, window.CRYPTO_FOCUS_SUPABASE_PUBLISHABLE_KEY);
 let currentUser = null;
 let signupMode = false;
+let recoveryMode = false;
 
 const fetchJson = async path => {
   const response = await fetch(`${MEXC}${path}`);
@@ -195,6 +196,7 @@ async function loadSyncedSettings() {
 async function setSignedInUser(user) {
   currentUser = user;
   renderAccount();
+  if (user && recoveryMode) { showAuth(); renderAuthMode(); return; }
   if (user) { hideAuth(); await loadSyncedSettings(); }
   else showAuth();
 }
@@ -204,11 +206,17 @@ async function submitAuth(event) {
   const password = document.querySelector("#authPassword").value;
   const submit = document.querySelector("#authSubmit");
   submit.disabled = true; setAuthMessage("Even controleren…");
-  const result = signupMode
+  let result;
+  if (recoveryMode) result = await supabaseClient.auth.updateUser({ password });
+  else result = signupMode
     ? await supabaseClient.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` } })
     : await supabaseClient.auth.signInWithPassword({ email, password });
   submit.disabled = false;
   if (result.error) { setAuthMessage(result.error.message); return; }
+  if (recoveryMode) {
+    recoveryMode = false; signupMode = false; renderAuthMode(); setAuthMessage("Wachtwoord aangepast. Je bent nu ingelogd.");
+    window.setTimeout(() => hideAuth(), 900); return;
+  }
   if (signupMode && !result.data.session) {
     setAuthMessage("Controleer je e-mail en bevestig je account. Log daarna hier in.");
     signupMode = false; renderAuthMode(); return;
@@ -216,11 +224,23 @@ async function submitAuth(event) {
   setAuthMessage("");
 }
 function renderAuthMode() {
-  document.querySelector("#authTitle").textContent = signupMode ? "Maak je account" : "Gebruik je account op elk apparaat";
-  document.querySelector("#authDescription").textContent = signupMode ? "Je watchlist en filters worden veilig gesynchroniseerd." : "Log in om je watchlist en filters automatisch te synchroniseren.";
-  document.querySelector("#authSubmit").textContent = signupMode ? "Account maken" : "Inloggen";
+  const emailLabel = document.querySelector("#authEmailLabel");
+  const emailInput = document.querySelector("#authEmail");
+  document.querySelector("#authTitle").textContent = recoveryMode ? "Kies een nieuw wachtwoord" : signupMode ? "Maak je account" : "Gebruik je account op elk apparaat";
+  document.querySelector("#authDescription").textContent = recoveryMode ? "Kies hieronder een nieuw wachtwoord van minimaal 8 tekens." : signupMode ? "Je watchlist en filters worden veilig gesynchroniseerd." : "Log in om je watchlist en filters automatisch te synchroniseren.";
+  document.querySelector("#authSubmit").textContent = recoveryMode ? "Nieuw wachtwoord opslaan" : signupMode ? "Account maken" : "Inloggen";
   document.querySelector("#authSwitch").textContent = signupMode ? "Al een account? Inloggen" : "Nog geen account? Account maken";
-  document.querySelector("#authPassword").autocomplete = signupMode ? "new-password" : "current-password";
+  document.querySelector("#authSwitch").classList.toggle("hidden", recoveryMode);
+  document.querySelector("#forgotPassword").classList.toggle("hidden", signupMode || recoveryMode);
+  emailLabel.classList.toggle("hidden", recoveryMode); emailInput.required = !recoveryMode; emailInput.disabled = recoveryMode;
+  document.querySelector("#authPassword").autocomplete = signupMode || recoveryMode ? "new-password" : "current-password";
+}
+async function sendPasswordReset() {
+  const email = document.querySelector("#authEmail").value.trim();
+  if (!email) { setAuthMessage("Vul eerst je e-mailadres in."); return; }
+  setAuthMessage("Herstellink wordt verstuurd…");
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}${window.location.pathname}` });
+  setAuthMessage(error ? error.message : "Controleer je e-mail voor de link om je wachtwoord te wijzigen.");
 }
 
 document.querySelectorAll(".asset").forEach(button => button.addEventListener("click", () => { selected = DETAIL_ASSETS.find(asset => asset.symbol === button.dataset.symbol); document.querySelectorAll(".asset").forEach(asset => asset.classList.toggle("active", asset === button)); loadDetail(); }));
@@ -230,9 +250,10 @@ document.querySelector("#refreshButton").addEventListener("click", refresh);
 document.querySelector("#accountButton").addEventListener("click", async () => { if (currentUser) await supabaseClient.auth.signOut(); else showAuth(); });
 document.querySelector("#authForm").addEventListener("submit", submitAuth);
 document.querySelector("#authSwitch").addEventListener("click", () => { signupMode = !signupMode; setAuthMessage(""); renderAuthMode(); });
+document.querySelector("#forgotPassword").addEventListener("click", sendPasswordReset);
 ["#usdtOnly", "#minVolume", "#watchlistOnly"].forEach(id => document.querySelector(id).addEventListener("change", saveFilters));
 document.querySelector("#resetFilters").addEventListener("click", () => { filters = { ...DEFAULT_FILTERS }; restoreFilterControls(); saveFilters(); });
 restoreFilterControls(); refresh(); window.setInterval(refresh, REFRESH_MS);
-supabaseClient.auth.onAuthStateChange((_event, session) => { setSignedInUser(session?.user || null); });
+supabaseClient.auth.onAuthStateChange((event, session) => { if (event === "PASSWORD_RECOVERY" && session?.user) { currentUser = session.user; recoveryMode = true; showAuth(); renderAuthMode(); } else setSignedInUser(session?.user || null); });
 supabaseClient.auth.getSession().then(({ data }) => setSignedInUser(data.session?.user || null));
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");
