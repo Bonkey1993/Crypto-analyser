@@ -12,20 +12,21 @@
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="theme-gold.css" />
+    <link rel="stylesheet" href="realtime.css" />
     <title>Crypto Focus</title>
   </head>
   <body>
     <main class="app-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">MARKTOVERZICHT</p>
+          <p class="eyebrow">MEXC · LIVE SCANNER</p>
           <h1>Crypto Focus</h1>
         </div>
         <button id="refreshButton" class="icon-button" aria-label="Ververs marktdata">↻</button>
       </header>
 
       <section class="notice" aria-label="Belangrijke melding">
-        <span>i</span> Onderzoek en paper trading — geen financieel advies.
+        <span>i</span> Elke 10 seconden vernieuwd · onderzoek en paper trading.
       </section>
 
       <section class="asset-picker" aria-label="Kies een munt">
@@ -57,12 +58,17 @@
       <section class="section-heading"><h2>Checklist</h2><span class="muted">Live</span></section>
       <section id="checklist" class="checklist" aria-live="polite"></section>
 
-      <section class="section-heading"><h2>Snelle scanner</h2><span class="muted">1 uur</span></section>
+      <section class="section-heading"><h2>Interessantste MEXC-markten</h2><span id="scanStatus" class="muted">laden…</span></section>
+      <section class="scanner-controls">
+        <label for="marketSearch" class="sr-only">Zoek een MEXC-markt</label>
+        <input id="marketSearch" type="search" placeholder="Zoek bijvoorbeeld PEPE of BTC/USDT" autocomplete="off" />
+        <button id="allMarketsButton" class="secondary-button">Alle markten</button>
+      </section>
       <section id="scanner" class="scanner" aria-live="polite"><p class="loading">Scanner laden…</p></section>
 
       <section class="safety-card">
         <h2>Voor je een trade overweegt</h2>
-        <p>Controleer nieuws, liquiditeit, je stop-loss en je maximale risico. De score hierboven vervangt die stappen niet.</p>
+        <p>De rangorde gebruikt 24-uurs liquiditeit, prijsbeweging en volatiliteit. Controleer nieuws, liquiditeit, je stop-loss en je maximale risico vóór iedere beslissing.</p>
       </section>
     </main>
     <nav class="bottom-nav" aria-label="Navigatie">

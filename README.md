@@ -17,10 +17,11 @@ Daarna opent Crypto Focus vanaf je beginscherm als een zelfstandige app.
 
 ## Wat de app doet
 
-- Toont BTC, ETH, SOL en XRP op een 1-uurs tijdsframe.
-- Berekening: EMA 20/50/200, RSI, MACD en relatief volume.
-- Scanner met een verklaarbare score; geen verborgen AI-voorspelling.
-- Werkt met openbare Binance-marktdata.
+- Toont een technische detailweergave voor BTC, ETH, SOL en XRP op een 1-uurs tijdsframe.
+- Verwerkt alle actieve spotmarkten die de openbare MEXC-marktfeed teruggeeft.
+- Vernieuwt de rangorde elke 10 seconden met één openbare batch-aanvraag.
+- Sorteert op een verklaarbare combinatie van 24-uurs liquiditeit, koersbeweging en volatiliteit; geen verborgen AI-voorspelling.
+- Werkt met openbare MEXC-marktdata en bevat geen API-sleutels.
 
 ## Belangrijke grens
 
