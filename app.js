@@ -23,7 +23,8 @@ const fetchJson = async path => {
   if (!response.ok) throw new Error("MEXC-marktdata is tijdelijk niet beschikbaar.");
   return response.json();
 };
-const fmt = number => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "USDT", maximumFractionDigits: number < 10 ? 4 : 2 }).format(number);
+// USDT is geen officiële ISO-valutacode; formatteer daarom als getal en voeg het label zelf toe.
+const fmt = number => `${new Intl.NumberFormat("nl-NL", { minimumFractionDigits: number < 10 ? 2 : 2, maximumFractionDigits: number < 10 ? 4 : 2 }).format(number)} USDT`;
 const pretty = symbol => symbol.endsWith("USDT") ? `${symbol.slice(0, -4)}/USDT` : symbol;
 const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const label = score => score >= 75 ? "Sterke context" : score >= 50 ? "Gemengde context" : "Zwakke context";
