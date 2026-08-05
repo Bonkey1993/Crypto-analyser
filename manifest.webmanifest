@@ -1,0 +1,10 @@
+{
+  "name": "Crypto Focus",
+  "short_name": "Crypto Focus",
+  "description": "Mobiel crypto-onderzoeksdashboard voor paper trading.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#070b16",
+  "theme_color": "#070b16",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

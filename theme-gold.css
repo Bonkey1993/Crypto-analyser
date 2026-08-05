@@ -1,0 +1,28 @@
+/* Strak zwart-gouden kleurthema; overschrijft de standaardkleurstelling. */
+:root {
+  --bg: #080807;
+  --card: #13120e;
+  --card-2: #1b1913;
+  --line: #393426;
+  --text: #f8f4e9;
+  --muted: #aaa393;
+  --blue: #d8ad4b;
+  --green: #4fd295;
+  --red: #f17478;
+  --amber: #f4d37b;
+}
+
+.eyebrow { color: #d8ad4b; }
+.icon-button { color: #f4d37b; }
+.notice { background: #211c0e; border-color: #615029; color: #e6cc8e; }
+.notice span { border-color: #d8ad4b; }
+.asset.active { background: #d8ad4b; border-color: #d8ad4b; color: #161106; }
+.hero-card { background: radial-gradient(circle at 100% 0, #3b2d12 0, var(--card) 48%); }
+.price, .metrics strong, .score-ring strong, .scan-score { color: #f4d37b; }
+.pill { background: #332712; color: #f2d582; }
+.score-ring { background: conic-gradient(#d8ad4b var(--score, 0%), #312c20 0); }
+.coin-dot { background: #332712; color: #f4d37b; }
+.safety-card { background: #19170f; border-color: #50442b; }
+.safety-card p { color: #c8c0ae; }
+.bottom-nav { background: rgba(10, 10, 8, .94); }
+.bottom-nav .nav-active { color: #d8ad4b; }
