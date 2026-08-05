@@ -28,3 +28,14 @@ Daarna opent Crypto Focus vanaf je beginscherm als een zelfstandige app.
 ## Belangrijke grens
 
 Een hoge score is geen koopsignaal. Controleer altijd nieuws, liquiditeit, stop-loss en je maximale risico. Voor een volgende fase kunnen we een mobiel trade journal, dagelijkse briefing en pushmeldingen toevoegen.
+
+## Account en synchronisatie instellen
+
+1. Open in je Supabase-project **SQL Editor → New query**.
+2. Open [supabase-setup.sql](supabase-setup.sql), kopieer alles en plak het in de SQL Editor.
+3. Klik op **Run**. Dit maakt uitsluitend een beveiligde tabel voor jouw filters en watchlist.
+4. Ga naar **Authentication → URL Configuration**. Vul bij **Site URL** de GitHub Pages-link van je app in en voeg diezelfde link toe bij **Redirect URLs**.
+5. Upload daarna alle appbestanden opnieuw naar GitHub Pages.
+6. Maak in de app een account en bevestig de e-mail. Log met hetzelfde account in op je iPhone, werkcomputer en MacBook.
+
+De app gebruikt alleen de Project URL en publishable key. De service-role/secret key hoort nooit in deze map of op GitHub.

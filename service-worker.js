@@ -1,5 +1,5 @@
-const CACHE = "crypto-focus-v4";
-const ASSETS = ["./", "./index.html", "./styles.css", "./theme-gold.css", "./realtime.css", "./app.js", "./manifest.webmanifest", "./icon.svg"];
+const CACHE = "crypto-focus-v5";
+const ASSETS = ["./", "./index.html", "./styles.css", "./theme-gold.css", "./realtime.css", "./supabase-config.js", "./app.js", "./manifest.webmanifest", "./icon.svg"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))));
 self.addEventListener("activate", event => event.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", event => {

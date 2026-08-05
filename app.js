@@ -14,6 +14,9 @@ let marketSymbols = null;
 let showAll = false;
 let filters = JSON.parse(localStorage.getItem("cryptoFocusFilters") || "null") || { ...DEFAULT_FILTERS };
 let watchlist = JSON.parse(localStorage.getItem("cryptoFocusWatchlist") || "[]");
+const supabaseClient = window.supabase.createClient(window.CRYPTO_FOCUS_SUPABASE_URL, window.CRYPTO_FOCUS_SUPABASE_PUBLISHABLE_KEY);
+let currentUser = null;
+let signupMode = false;
 
 const fetchJson = async path => {
   const response = await fetch(`${MEXC}${path}`);
@@ -113,6 +116,7 @@ function toggleWatch(symbol) {
   localStorage.setItem("cryptoFocusWatchlist", JSON.stringify(watchlist));
   renderScanner();
   renderWatchlist();
+  syncSettings();
 }
 function renderScanner() {
   const markets = visibleMarkets();
@@ -148,6 +152,7 @@ function saveFilters() {
   filters = { usdtOnly: document.querySelector("#usdtOnly").checked, minVolume: Number(document.querySelector("#minVolume").value), watchlistOnly: document.querySelector("#watchlistOnly").checked };
   localStorage.setItem("cryptoFocusFilters", JSON.stringify(filters));
   renderScanner();
+  syncSettings();
 }
 function restoreFilterControls() {
   document.querySelector("#usdtOnly").checked = filters.usdtOnly;
@@ -156,11 +161,77 @@ function restoreFilterControls() {
 }
 function refresh() { loadDetail(); scan(); }
 
+function setAuthMessage(message) { document.querySelector("#authMessage").textContent = message || ""; }
+function showAuth() { document.querySelector("#authOverlay").classList.remove("hidden"); setAuthMessage(""); }
+function hideAuth() { document.querySelector("#authOverlay").classList.add("hidden"); }
+function renderAccount() {
+  const button = document.querySelector("#accountButton");
+  if (currentUser) { button.textContent = "Uitloggen"; button.classList.add("signed-in"); }
+  else { button.textContent = "Inloggen"; button.classList.remove("signed-in"); }
+}
+function syncToLocal() {
+  localStorage.setItem("cryptoFocusFilters", JSON.stringify(filters));
+  localStorage.setItem("cryptoFocusWatchlist", JSON.stringify(watchlist));
+}
+async function syncSettings() {
+  if (!currentUser) return;
+  const { error } = await supabaseClient.from("user_settings").upsert({
+    user_id: currentUser.id, filters, watchlist, updated_at: new Date().toISOString()
+  });
+  if (error) console.warn("Instellingen konden nog niet worden gesynchroniseerd.", error.message);
+}
+async function loadSyncedSettings() {
+  const { data, error } = await supabaseClient.from("user_settings").select("filters, watchlist").eq("user_id", currentUser.id).maybeSingle();
+  if (error) { setAuthMessage("De database-instelling ontbreekt nog. Voer eerst supabase-setup.sql uit."); return; }
+  if (data) {
+    filters = { ...DEFAULT_FILTERS, ...data.filters };
+    watchlist = Array.isArray(data.watchlist) ? data.watchlist : [];
+    syncToLocal(); restoreFilterControls(); renderScanner(); renderWatchlist();
+  } else {
+    await syncSettings();
+  }
+}
+async function setSignedInUser(user) {
+  currentUser = user;
+  renderAccount();
+  if (user) { hideAuth(); await loadSyncedSettings(); }
+  else showAuth();
+}
+async function submitAuth(event) {
+  event.preventDefault();
+  const email = document.querySelector("#authEmail").value.trim();
+  const password = document.querySelector("#authPassword").value;
+  const submit = document.querySelector("#authSubmit");
+  submit.disabled = true; setAuthMessage("Even controleren…");
+  const result = signupMode
+    ? await supabaseClient.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` } })
+    : await supabaseClient.auth.signInWithPassword({ email, password });
+  submit.disabled = false;
+  if (result.error) { setAuthMessage(result.error.message); return; }
+  if (signupMode && !result.data.session) {
+    setAuthMessage("Controleer je e-mail en bevestig je account. Log daarna hier in.");
+    signupMode = false; renderAuthMode(); return;
+  }
+  setAuthMessage("");
+}
+function renderAuthMode() {
+  document.querySelector("#authTitle").textContent = signupMode ? "Maak je account" : "Gebruik je account op elk apparaat";
+  document.querySelector("#authDescription").textContent = signupMode ? "Je watchlist en filters worden veilig gesynchroniseerd." : "Log in om je watchlist en filters automatisch te synchroniseren.";
+  document.querySelector("#authSubmit").textContent = signupMode ? "Account maken" : "Inloggen";
+  document.querySelector("#authSwitch").textContent = signupMode ? "Al een account? Inloggen" : "Nog geen account? Account maken";
+  document.querySelector("#authPassword").autocomplete = signupMode ? "new-password" : "current-password";
+}
+
 document.querySelectorAll(".asset").forEach(button => button.addEventListener("click", () => { selected = DETAIL_ASSETS.find(asset => asset.symbol === button.dataset.symbol); document.querySelectorAll(".asset").forEach(asset => asset.classList.toggle("active", asset === button)); loadDetail(); }));
 document.querySelector("#marketSearch").addEventListener("input", renderScanner);
 document.querySelector("#allMarketsButton").addEventListener("click", () => { showAll = !showAll; document.querySelector("#allMarketsButton").textContent = showAll ? "Toon top 30" : "Alle markten"; renderScanner(); });
 document.querySelector("#refreshButton").addEventListener("click", refresh);
+document.querySelector("#accountButton").addEventListener("click", async () => { if (currentUser) await supabaseClient.auth.signOut(); else showAuth(); });
+document.querySelector("#authForm").addEventListener("submit", submitAuth);
+document.querySelector("#authSwitch").addEventListener("click", () => { signupMode = !signupMode; setAuthMessage(""); renderAuthMode(); });
 ["#usdtOnly", "#minVolume", "#watchlistOnly"].forEach(id => document.querySelector(id).addEventListener("change", saveFilters));
 document.querySelector("#resetFilters").addEventListener("click", () => { filters = { ...DEFAULT_FILTERS }; restoreFilterControls(); saveFilters(); });
 restoreFilterControls(); refresh(); window.setInterval(refresh, REFRESH_MS);
+supabaseClient.auth.onAuthStateChange((_event, session) => { setSignedInUser(session?.user || null); });
+supabaseClient.auth.getSession().then(({ data }) => setSignedInUser(data.session?.user || null));
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");
