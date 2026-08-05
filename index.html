@@ -64,7 +64,16 @@
         <input id="marketSearch" type="search" placeholder="Zoek bijvoorbeeld PEPE of BTC/USDT" autocomplete="off" />
         <button id="allMarketsButton" class="secondary-button">Alle markten</button>
       </section>
+      <section class="filter-card" aria-label="Persoonlijke scannerfilters">
+        <div class="filter-heading"><strong>Mijn filters</strong><button id="resetFilters" class="text-button">Herstel</button></div>
+        <label class="toggle-row"><span>Alleen USDT-markten</span><input id="usdtOnly" type="checkbox" checked /><i></i></label>
+        <label class="filter-select"><span>Minimaal 24-uurs volume</span><select id="minVolume"><option value="0">Geen minimum</option><option value="100000">100.000 USDT</option><option value="1000000" selected>1 miljoen USDT</option><option value="10000000">10 miljoen USDT</option></select></label>
+        <label class="toggle-row"><span>Alleen mijn watchlist</span><input id="watchlistOnly" type="checkbox" /><i></i></label>
+      </section>
       <section id="scanner" class="scanner" aria-live="polite"><p class="loading">Scanner laden…</p></section>
+
+      <section class="section-heading"><h2>Mijn watchlist</h2><span id="watchlistCount" class="muted">0 markten</span></section>
+      <section id="watchlist" class="watchlist"><p class="loading">Tik op ☆ bij een markt om hem hier te bewaren.</p></section>
 
       <section class="safety-card">
         <h2>Voor je een trade overweegt</h2>

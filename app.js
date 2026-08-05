@@ -1,17 +1,166 @@
-// Openbare MEXC-data; geen account, API-sleutel of orderfunctionaliteit.
-const MEXC = "https://api.mexc.com/api/v3", REFRESH_MS = 10_000;
-const DETAIL_ASSETS = [{symbol:"BTCUSDT",name:"Bitcoin",short:"BTC"},{symbol:"ETHUSDT",name:"Ethereum",short:"ETH"},{symbol:"SOLUSDT",name:"Solana",short:"SOL"},{symbol:"XRPUSDT",name:"XRP",short:"XRP"}];
-let selected=DETAIL_ASSETS[0], rankedMarkets=[], showAll=false, marketSymbols=null;
-const fmt=n=>new Intl.NumberFormat("nl-NL",{style:"currency",currency:"USDT",maximumFractionDigits:n<10?4:2}).format(n);
-const fetchJson=async path=>{const r=await fetch(`${MEXC}${path}`);if(!r.ok)throw new Error("MEXC marktdata is tijdelijk niet beschikbaar.");return r.json();};
-function ema(v,p){const m=2/(p+1);let x=v[0];return v.map(n=>(x=n*m+x*(1-m)));} function rsi(v,p=14){const d=v.slice(1).map((n,i)=>n-v[i]);let g=d.slice(0,p).reduce((a,n)=>a+Math.max(n,0),0)/p,l=d.slice(0,p).reduce((a,n)=>a+Math.max(-n,0),0)/p,o=Array(p).fill(null);for(let i=p;i<d.length;i++){g=(g*(p-1)+Math.max(d[i],0))/p;l=(l*(p-1)+Math.max(-d[i],0))/p;o.push(l===0?100:100-100/(1+g/l));}return[null,...o];}
-function detail(raw){const c=raw.map(x=>+x[4]),v=raw.map(x=>+x[5]),e20=ema(c,20),e50=ema(c,50),e200=ema(c,200),rs=rsi(c),macd=ema(c,12).map((x,i)=>x-ema(c,26)[i]),sig=ema(macd,9),i=c.length-1,va=v.slice(-20).reduce((a,n)=>a+n,0)/20,tests=[["Prijs boven EMA 20",c[i]>e20[i],20],["EMA 20 boven EMA 50",e20[i]>e50[i],20],["Prijs boven EMA 200",c[i]>e200[i],20],["RSI tussen 50 en 70",rs[i]>=50&&rs[i]<=70,15],["MACD boven signaallijn",macd[i]>sig[i],15],["Volume boven gemiddelde",v[i]>va,10]];return{close:c[i],change:(c[i]/c[i-1]-1)*100,rsi:rs[i],volumeRatio:v[i]/va,trend:c[i]>e200[i]?"Boven EMA 200":"Onder EMA 200",score:tests.reduce((a,x)=>a+(x[1]?x[2]:0),0),tests};}
-const label=s=>s>=75?"Sterke context":s>=50?"Gemengde context":"Zwakke context";
-function renderDetail(d){document.querySelector("#assetName").textContent=selected.name;document.querySelector("#price").textContent=fmt(d.close);const c=document.querySelector("#change");c.textContent=`${d.change>=0?"+":""}${d.change.toFixed(2)}% sinds vorige candle`;c.className=`change ${d.change>0?"positive":"negative"}`;document.querySelector("#updated").textContent=`Detail bijgewerkt: ${new Date().toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}`;document.querySelector("#score").textContent=d.score;document.querySelector("#scoreRing").style.setProperty("--score",`${d.score}%`);document.querySelector("#setupLabel").textContent=label(d.score);document.querySelector("#scoreSummary").textContent=label(d.score);document.querySelector("#rsi").textContent=d.rsi.toFixed(1);document.querySelector("#volume").textContent=`${d.volumeRatio.toFixed(2)}×`;document.querySelector("#trend").textContent=d.trend;document.querySelector("#checklist").innerHTML=d.tests.map(([n,y,p])=>`<div class="check-row"><span>${n}</span><span class="check-status ${y?"yes":"no"}">${y?`✓ +${p}`:"–"}</span></div>`).join("");}
-async function loadDetail(){try{renderDetail(detail(await fetchJson(`/klines?symbol=${selected.symbol}&interval=1h&limit=250`)));}catch(e){document.querySelector("#change").textContent=e.message;document.querySelector("#change").className="change neutral";}}
-const num=x=>Number.isFinite(Number(x))?Number(x):0;const pct=(a,x)=>a.filter(n=>n<=x).length/a.length;
-function rank(tickers,symbols){const valid=new Set(symbols.filter(x=>x.status==="1"||x.status==="ENABLED"||x.isSpotTradingAllowed).map(x=>x.symbol)),active=tickers.filter(x=>(valid.size===0||valid.has(x.symbol))&&num(x.quoteVolume)>0&&num(x.lastPrice)>0),volumes=active.map(x=>Math.log10(num(x.quoteVolume)+1));return active.map(x=>{const move=Math.abs(num(x.priceChangePercent)),range=num(x.lowPrice)>0?(num(x.highPrice)-num(x.lowPrice))/num(x.lowPrice)*100:0,liquidity=Math.min(45,pct(volumes,Math.log10(num(x.quoteVolume)+1))*45),movement=Math.min(35,move*3.5),volatility=Math.min(20,range*1.5);return{symbol:x.symbol,score:Math.round(liquidity+movement+volatility),move,quoteVolume:num(x.quoteVolume),side:num(x.priceChangePercent)>0?"Opwaarts":num(x.priceChangePercent)<0?"Neerwaarts":"Vlak"};}).sort((a,b)=>b.score-a.score||b.quoteVolume-a.quoteVolume);}
-const pretty=s=>s.endsWith("USDT")?`${s.slice(0,-4)}/USDT`:s;
-function renderScanner(){const q=document.querySelector("#marketSearch").value.trim().toUpperCase(),markets=rankedMarkets.filter(x=>x.symbol.includes(q)),visible=showAll?markets:markets.slice(0,30),compact=new Intl.NumberFormat("nl-NL",{notation:"compact",maximumFractionDigits:1});document.querySelector("#scanner").innerHTML=visible.length?visible.map((x,i)=>`<button class="scan-row" data-symbol="${x.symbol}"><div class="rank">${i+1}</div><div class="coin-dot">${x.symbol.slice(0,4)}</div><div class="scan-text"><strong>${pretty(x.symbol)}</strong><small>${x.side} · ${x.move.toFixed(2)}% · volume ${compact.format(x.quoteVolume)} USDT</small></div><div class="scan-score">${x.score}<small>/100</small></div></button>`).join(""):'<p class="loading">Geen markt gevonden.</p>';document.querySelectorAll(".scan-row").forEach(b=>b.addEventListener("click",()=>{const s=b.dataset.symbol;selected={symbol:s,name:pretty(s),short:s.slice(0,4)};document.querySelectorAll(".asset").forEach(x=>x.classList.remove("active"));loadDetail();window.scrollTo({top:0,behavior:"smooth"});}));}
-async function scan(){const status=document.querySelector("#scanStatus");try{const tickers=await fetchJson("/ticker/24hr");if(!marketSymbols){const exchange=await fetchJson("/exchangeInfo");marketSymbols=exchange.symbols||[];}rankedMarkets=rank(tickers,marketSymbols);renderScanner();status.textContent=`${rankedMarkets.length.toLocaleString("nl-NL")} actieve markten · live`;}catch(e){status.textContent="MEXC-data niet beschikbaar";document.querySelector("#scanner").innerHTML=`<p class="loading">${e.message}</p>`;}}
-function refresh(){loadDetail();scan();} document.querySelectorAll(".asset").forEach(b=>b.addEventListener("click",()=>{selected=DETAIL_ASSETS.find(x=>x.symbol===b.dataset.symbol);document.querySelectorAll(".asset").forEach(x=>x.classList.toggle("active",x===b));loadDetail();}));document.querySelector("#marketSearch").addEventListener("input",renderScanner);document.querySelector("#allMarketsButton").addEventListener("click",()=>{showAll=!showAll;document.querySelector("#allMarketsButton").textContent=showAll?"Toon top 30":"Alle markten";renderScanner();});document.querySelector("#refreshButton").addEventListener("click",refresh);refresh();window.setInterval(refresh,REFRESH_MS);if("serviceWorker"in navigator)navigator.serviceWorker.register("service-worker.js");
+// Openbare MEXC-data. Geen account, API-sleutel of orderfunctionaliteit.
+const MEXC = "https://api.mexc.com/api/v3";
+const REFRESH_MS = 10_000;
+const DETAIL_ASSETS = [
+  { symbol: "BTCUSDT", name: "Bitcoin", short: "BTC" },
+  { symbol: "ETHUSDT", name: "Ethereum", short: "ETH" },
+  { symbol: "SOLUSDT", name: "Solana", short: "SOL" },
+  { symbol: "XRPUSDT", name: "XRP", short: "XRP" }
+];
+const DEFAULT_FILTERS = { usdtOnly: true, minVolume: 1_000_000, watchlistOnly: false };
+let selected = DETAIL_ASSETS[0];
+let rankedMarkets = [];
+let marketSymbols = null;
+let showAll = false;
+let filters = JSON.parse(localStorage.getItem("cryptoFocusFilters") || "null") || { ...DEFAULT_FILTERS };
+let watchlist = JSON.parse(localStorage.getItem("cryptoFocusWatchlist") || "[]");
+
+const fetchJson = async path => {
+  const response = await fetch(`${MEXC}${path}`);
+  if (!response.ok) throw new Error("MEXC-marktdata is tijdelijk niet beschikbaar.");
+  return response.json();
+};
+const fmt = number => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "USDT", maximumFractionDigits: number < 10 ? 4 : 2 }).format(number);
+const pretty = symbol => symbol.endsWith("USDT") ? `${symbol.slice(0, -4)}/USDT` : symbol;
+const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+const label = score => score >= 75 ? "Sterke context" : score >= 50 ? "Gemengde context" : "Zwakke context";
+const compact = new Intl.NumberFormat("nl-NL", { notation: "compact", maximumFractionDigits: 1 });
+
+function ema(values, period) {
+  const multiplier = 2 / (period + 1);
+  let latest = values[0];
+  return values.map(value => (latest = value * multiplier + latest * (1 - multiplier)));
+}
+function rsi(values, period = 14) {
+  const changes = values.slice(1).map((value, index) => value - values[index]);
+  let gain = changes.slice(0, period).reduce((total, value) => total + Math.max(value, 0), 0) / period;
+  let loss = changes.slice(0, period).reduce((total, value) => total + Math.max(-value, 0), 0) / period;
+  const results = Array(period).fill(null);
+  for (let index = period; index < changes.length; index += 1) {
+    gain = (gain * (period - 1) + Math.max(changes[index], 0)) / period;
+    loss = (loss * (period - 1) + Math.max(-changes[index], 0)) / period;
+    results.push(loss === 0 ? 100 : 100 - 100 / (1 + gain / loss));
+  }
+  return [null, ...results];
+}
+function calculateDetail(raw) {
+  const close = raw.map(candle => +candle[4]);
+  const volume = raw.map(candle => +candle[5]);
+  const ema20 = ema(close, 20), ema50 = ema(close, 50), ema200 = ema(close, 200), rsi14 = rsi(close);
+  const macd = ema(close, 12).map((value, index) => value - ema(close, 26)[index]);
+  const signal = ema(macd, 9), index = close.length - 1;
+  const averageVolume = volume.slice(-20).reduce((total, value) => total + value, 0) / 20;
+  const tests = [
+    ["Prijs boven EMA 20", close[index] > ema20[index], 20],
+    ["EMA 20 boven EMA 50", ema20[index] > ema50[index], 20],
+    ["Prijs boven EMA 200", close[index] > ema200[index], 20],
+    ["RSI tussen 50 en 70", rsi14[index] >= 50 && rsi14[index] <= 70, 15],
+    ["MACD boven signaallijn", macd[index] > signal[index], 15],
+    ["Volume boven gemiddelde", volume[index] > averageVolume, 10]
+  ];
+  return { close: close[index], change: (close[index] / close[index - 1] - 1) * 100, rsi: rsi14[index], volumeRatio: volume[index] / averageVolume, trend: close[index] > ema200[index] ? "Boven EMA 200" : "Onder EMA 200", score: tests.reduce((total, test) => total + (test[1] ? test[2] : 0), 0), tests };
+}
+function renderDetail(data) {
+  document.querySelector("#assetName").textContent = selected.name;
+  document.querySelector("#price").textContent = fmt(data.close);
+  const change = document.querySelector("#change");
+  change.textContent = `${data.change >= 0 ? "+" : ""}${data.change.toFixed(2)}% sinds vorige candle`;
+  change.className = `change ${data.change > 0 ? "positive" : "negative"}`;
+  document.querySelector("#updated").textContent = `Detail bijgewerkt: ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+  document.querySelector("#score").textContent = data.score;
+  document.querySelector("#scoreRing").style.setProperty("--score", `${data.score}%`);
+  document.querySelector("#setupLabel").textContent = label(data.score);
+  document.querySelector("#scoreSummary").textContent = label(data.score);
+  document.querySelector("#rsi").textContent = data.rsi.toFixed(1);
+  document.querySelector("#volume").textContent = `${data.volumeRatio.toFixed(2)}x`;
+  document.querySelector("#trend").textContent = data.trend;
+  document.querySelector("#checklist").innerHTML = data.tests.map(([name, yes, points]) => `<div class="check-row"><span>${name}</span><span class="check-status ${yes ? "yes" : "no"}">${yes ? `+${points}` : "-"}</span></div>`).join("");
+}
+async function loadDetail() {
+  try { renderDetail(calculateDetail(await fetchJson(`/klines?symbol=${selected.symbol}&interval=1h&limit=250`))); }
+  catch (error) { document.querySelector("#change").textContent = error.message; document.querySelector("#change").className = "change neutral"; }
+}
+
+function rankMarkets(tickers, symbols) {
+  const enabled = new Set(symbols.filter(item => item.status === "1" || item.status === "ENABLED" || item.isSpotTradingAllowed).map(item => item.symbol));
+  const active = tickers.filter(item => (enabled.size === 0 || enabled.has(item.symbol)) && num(item.quoteVolume) > 0 && num(item.lastPrice) > 0);
+  const volumes = active.map(item => Math.log10(num(item.quoteVolume) + 1));
+  return active.map(item => {
+    const move = Math.abs(num(item.priceChangePercent));
+    const range = num(item.lowPrice) > 0 ? (num(item.highPrice) - num(item.lowPrice)) / num(item.lowPrice) * 100 : 0;
+    const liquidity = Math.min(45, volumes.filter(volume => volume <= Math.log10(num(item.quoteVolume) + 1)).length / volumes.length * 45);
+    const score = Math.round(liquidity + Math.min(35, move * 3.5) + Math.min(20, range * 1.5));
+    return { symbol: item.symbol, score, move, quoteVolume: num(item.quoteVolume), side: num(item.priceChangePercent) > 0 ? "Opwaarts" : num(item.priceChangePercent) < 0 ? "Neerwaarts" : "Vlak" };
+  }).sort((first, second) => second.score - first.score || second.quoteVolume - first.quoteVolume);
+}
+function visibleMarkets() {
+  const query = document.querySelector("#marketSearch").value.trim().toUpperCase();
+  return rankedMarkets.filter(market =>
+    market.symbol.includes(query) &&
+    (!filters.usdtOnly || market.symbol.endsWith("USDT")) &&
+    market.quoteVolume >= filters.minVolume &&
+    (!filters.watchlistOnly || watchlist.includes(market.symbol))
+  );
+}
+function chooseMarket(symbol) {
+  selected = { symbol, name: pretty(symbol), short: symbol.slice(0, 4) };
+  document.querySelectorAll(".asset").forEach(asset => asset.classList.remove("active"));
+  loadDetail();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function toggleWatch(symbol) {
+  watchlist = watchlist.includes(symbol) ? watchlist.filter(item => item !== symbol) : [...watchlist, symbol];
+  localStorage.setItem("cryptoFocusWatchlist", JSON.stringify(watchlist));
+  renderScanner();
+  renderWatchlist();
+}
+function renderScanner() {
+  const markets = visibleMarkets();
+  const visible = showAll ? markets : markets.slice(0, 30);
+  const scanner = document.querySelector("#scanner");
+  scanner.innerHTML = visible.length ? visible.map((market, index) => `<article class="scan-row"><button class="market-detail" data-symbol="${market.symbol}"><div class="rank">${index + 1}</div><div class="coin-dot">${market.symbol.slice(0, 4)}</div><div class="scan-text"><strong>${pretty(market.symbol)}</strong><small>${market.side} · ${market.move.toFixed(2)}% · volume ${compact.format(market.quoteVolume)} USDT</small></div><div class="scan-score">${market.score}<small>/100</small></div></button><button class="watch-toggle ${watchlist.includes(market.symbol) ? "saved" : ""}" data-watch="${market.symbol}" aria-label="Bewaar ${pretty(market.symbol)} in watchlist">${watchlist.includes(market.symbol) ? "★" : "☆"}</button></article>`).join("") : "<p class=\"loading\">Geen markt voldoet aan deze filters.</p>";
+  scanner.querySelectorAll(".market-detail").forEach(button => button.addEventListener("click", () => chooseMarket(button.dataset.symbol)));
+  scanner.querySelectorAll(".watch-toggle").forEach(button => button.addEventListener("click", () => toggleWatch(button.dataset.watch)));
+}
+function renderWatchlist() {
+  const lookup = new Map(rankedMarkets.map(market => [market.symbol, market]));
+  const container = document.querySelector("#watchlist");
+  document.querySelector("#watchlistCount").textContent = `${watchlist.length} ${watchlist.length === 1 ? "markt" : "markten"}`;
+  container.innerHTML = watchlist.length ? watchlist.map(symbol => {
+    const market = lookup.get(symbol);
+    const subtitle = market ? `${market.side} · score ${market.score}/100 · ${market.move.toFixed(2)}%` : "Wachten op marktdata";
+    return `<div class="watch-row"><div class="coin-dot">${symbol.slice(0, 4)}</div><button data-open="${symbol}"><strong>${pretty(symbol)}</strong><small>${subtitle}</small></button><button class="remove-watch" data-remove="${symbol}" aria-label="Verwijder ${pretty(symbol)}">×</button></div>`;
+  }).join("") : "<p class=\"loading\">Tik op ☆ bij een markt om hem hier te bewaren.</p>";
+  container.querySelectorAll("[data-open]").forEach(button => button.addEventListener("click", () => chooseMarket(button.dataset.open)));
+  container.querySelectorAll("[data-remove]").forEach(button => button.addEventListener("click", () => toggleWatch(button.dataset.remove)));
+}
+async function scan() {
+  const status = document.querySelector("#scanStatus");
+  try {
+    const tickers = await fetchJson("/ticker/24hr");
+    if (!marketSymbols) { const exchange = await fetchJson("/exchangeInfo"); marketSymbols = exchange.symbols || []; }
+    rankedMarkets = rankMarkets(tickers, marketSymbols);
+    renderScanner(); renderWatchlist();
+    status.textContent = `${rankedMarkets.length.toLocaleString("nl-NL")} actieve markten · live`;
+  } catch (error) { status.textContent = "MEXC-data niet beschikbaar"; document.querySelector("#scanner").innerHTML = `<p class="loading">${error.message}</p>`; }
+}
+function saveFilters() {
+  filters = { usdtOnly: document.querySelector("#usdtOnly").checked, minVolume: Number(document.querySelector("#minVolume").value), watchlistOnly: document.querySelector("#watchlistOnly").checked };
+  localStorage.setItem("cryptoFocusFilters", JSON.stringify(filters));
+  renderScanner();
+}
+function restoreFilterControls() {
+  document.querySelector("#usdtOnly").checked = filters.usdtOnly;
+  document.querySelector("#minVolume").value = String(filters.minVolume);
+  document.querySelector("#watchlistOnly").checked = filters.watchlistOnly;
+}
+function refresh() { loadDetail(); scan(); }
+
+document.querySelectorAll(".asset").forEach(button => button.addEventListener("click", () => { selected = DETAIL_ASSETS.find(asset => asset.symbol === button.dataset.symbol); document.querySelectorAll(".asset").forEach(asset => asset.classList.toggle("active", asset === button)); loadDetail(); }));
+document.querySelector("#marketSearch").addEventListener("input", renderScanner);
+document.querySelector("#allMarketsButton").addEventListener("click", () => { showAll = !showAll; document.querySelector("#allMarketsButton").textContent = showAll ? "Toon top 30" : "Alle markten"; renderScanner(); });
+document.querySelector("#refreshButton").addEventListener("click", refresh);
+["#usdtOnly", "#minVolume", "#watchlistOnly"].forEach(id => document.querySelector(id).addEventListener("change", saveFilters));
+document.querySelector("#resetFilters").addEventListener("click", () => { filters = { ...DEFAULT_FILTERS }; restoreFilterControls(); saveFilters(); });
+restoreFilterControls(); refresh(); window.setInterval(refresh, REFRESH_MS);
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");

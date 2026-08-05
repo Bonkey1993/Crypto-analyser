@@ -22,6 +22,8 @@ Daarna opent Crypto Focus vanaf je beginscherm als een zelfstandige app.
 - Vernieuwt de rangorde elke 10 seconden met één openbare batch-aanvraag.
 - Sorteert op een verklaarbare combinatie van 24-uurs liquiditeit, koersbeweging en volatiliteit; geen verborgen AI-voorspelling.
 - Werkt met openbare MEXC-marktdata en bevat geen API-sleutels.
+- Persoonlijke filters: alleen USDT-markten, minimum 24-uurs volume en alleen je watchlist.
+- Watchlist: tik op de ster bij een markt. De instellingen worden alleen lokaal op je iPhone bewaard.
 
 ## Belangrijke grens
 
