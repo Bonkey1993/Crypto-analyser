@@ -17,7 +17,11 @@ let watchlist = JSON.parse(localStorage.getItem("cryptoFocusWatchlist") || "[]")
 const supabaseClient = window.supabase.createClient(window.CRYPTO_FOCUS_SUPABASE_URL, window.CRYPTO_FOCUS_SUPABASE_PUBLISHABLE_KEY);
 let currentUser = null;
 let signupMode = false;
-let recoveryMode = false;
+// Supabase zet `type=recovery` in de terugkeerlink. Herken dit al vóór de sessie geladen wordt,
+// zodat de app nooit opent voordat er een nieuw wachtwoord is gekozen.
+const recoveryParameters = new URLSearchParams(window.location.hash.slice(1));
+const recoveryQuery = new URLSearchParams(window.location.search);
+let recoveryMode = recoveryParameters.get("type") === "recovery" || recoveryQuery.get("type") === "recovery";
 
 const fetchJson = async path => {
   const response = await fetch(`${MEXC}${path}`);
@@ -214,7 +218,10 @@ async function submitAuth(event) {
   submit.disabled = false;
   if (result.error) { setAuthMessage(result.error.message); return; }
   if (recoveryMode) {
-    recoveryMode = false; signupMode = false; renderAuthMode(); setAuthMessage("Wachtwoord aangepast. Je bent nu ingelogd.");
+    recoveryMode = false; signupMode = false;
+    // Verwijder de eenmalige herstelgegevens uit de adresbalk na een geslaagde wijziging.
+    window.history.replaceState({}, document.title, window.location.pathname);
+    renderAuthMode(); setAuthMessage("Wachtwoord aangepast. Je bent nu ingelogd.");
     window.setTimeout(() => hideAuth(), 900); return;
   }
   if (signupMode && !result.data.session) {
