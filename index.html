@@ -13,6 +13,23 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="theme-gold.css" />
     <link rel="stylesheet" href="realtime.css" />
+    <script>
+      // Een herstelsessie mag nooit het dashboard tonen, ook niet kort tijdens laden.
+      (() => {
+        const hash = new URLSearchParams(window.location.hash.slice(1));
+        const query = new URLSearchParams(window.location.search);
+        const isRecoveryLink = hash.get("type") === "recovery" || query.get("type") === "recovery";
+        const recoveryLocked = localStorage.getItem("cryptoFocusPasswordRecovery") === "1";
+        if (!isRecoveryLink && !recoveryLocked) return;
+        if (isRecoveryLink) localStorage.setItem("cryptoFocusPasswordRecovery", "1");
+        const resetUrl = new URL("reset.html", window.location.href);
+        if (isRecoveryLink) {
+          resetUrl.search = window.location.search;
+          resetUrl.hash = window.location.hash;
+        }
+        window.location.replace(resetUrl.href);
+      })();
+    </script>
     <title>Crypto Focus</title>
   </head>
   <body>

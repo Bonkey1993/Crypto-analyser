@@ -23,6 +23,18 @@ const recoveryParameters = new URLSearchParams(window.location.hash.slice(1));
 const recoveryQuery = new URLSearchParams(window.location.search);
 let recoveryMode = recoveryParameters.get("type") === "recovery" || recoveryQuery.get("type") === "recovery" || recoveryQuery.get("recover") === "1";
 
+function openResetPage() {
+  localStorage.setItem("cryptoFocusPasswordRecovery", "1");
+  const resetUrl = new URL("reset.html", window.location.href);
+  if (recoveryMode) {
+    resetUrl.search = window.location.search;
+    resetUrl.hash = window.location.hash;
+  }
+  window.location.replace(resetUrl.href);
+}
+// Noodvangnet voor een oude cache of een verkeerd geopende herstellink.
+if (recoveryMode || localStorage.getItem("cryptoFocusPasswordRecovery") === "1") openResetPage();
+
 const fetchJson = async path => {
   const response = await fetch(`${MEXC}${path}`);
   if (!response.ok) throw new Error("MEXC-marktdata is tijdelijk niet beschikbaar.");
@@ -200,7 +212,7 @@ async function loadSyncedSettings() {
 async function setSignedInUser(user) {
   currentUser = user;
   renderAccount();
-  if (user && recoveryMode) { showAuth(); renderAuthMode(); return; }
+  if (user && recoveryMode) { openResetPage(); return; }
   if (user) { hideAuth(); await loadSyncedSettings(); }
   else showAuth();
 }
@@ -250,8 +262,9 @@ async function sendPasswordReset() {
   const email = document.querySelector("#authEmail").value.trim();
   if (!email) { setAuthMessage("Vul eerst je e-mailadres in."); return; }
   setAuthMessage("Herstellink wordt verstuurd…");
-  // De extra parameter maakt de herstelstroom herkenbaar, ook wanneer iOS de link via Safari opent.
-  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}${window.location.pathname}?recover=1` });
+  // Een aparte pagina voorkomt dat iOS/Safari de herstel-sessie als gewone app-login verwerkt.
+  const resetUrl = new URL("reset.html", window.location.href).href;
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: resetUrl });
   setAuthMessage(error ? error.message : "Controleer je e-mail voor de link om je wachtwoord te wijzigen.");
 }
 
@@ -266,6 +279,6 @@ document.querySelector("#forgotPassword").addEventListener("click", sendPassword
 ["#usdtOnly", "#minVolume", "#watchlistOnly"].forEach(id => document.querySelector(id).addEventListener("change", saveFilters));
 document.querySelector("#resetFilters").addEventListener("click", () => { filters = { ...DEFAULT_FILTERS }; restoreFilterControls(); saveFilters(); });
 restoreFilterControls(); refresh(); window.setInterval(refresh, REFRESH_MS);
-supabaseClient.auth.onAuthStateChange((event, session) => { if (event === "PASSWORD_RECOVERY" && session?.user) { currentUser = session.user; recoveryMode = true; showAuth(); renderAuthMode(); } else setSignedInUser(session?.user || null); });
+supabaseClient.auth.onAuthStateChange((event, session) => { if (event === "PASSWORD_RECOVERY" && session?.user) { recoveryMode = true; openResetPage(); } else setSignedInUser(session?.user || null); });
 supabaseClient.auth.getSession().then(({ data }) => setSignedInUser(data.session?.user || null));
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");
