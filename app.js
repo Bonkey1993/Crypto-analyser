@@ -21,7 +21,7 @@ let signupMode = false;
 // zodat de app nooit opent voordat er een nieuw wachtwoord is gekozen.
 const recoveryParameters = new URLSearchParams(window.location.hash.slice(1));
 const recoveryQuery = new URLSearchParams(window.location.search);
-let recoveryMode = recoveryParameters.get("type") === "recovery" || recoveryQuery.get("type") === "recovery";
+let recoveryMode = recoveryParameters.get("type") === "recovery" || recoveryQuery.get("type") === "recovery" || recoveryQuery.get("recover") === "1";
 
 const fetchJson = async path => {
   const response = await fetch(`${MEXC}${path}`);
@@ -218,11 +218,15 @@ async function submitAuth(event) {
   submit.disabled = false;
   if (result.error) { setAuthMessage(result.error.message); return; }
   if (recoveryMode) {
+    // Een nieuw wachtwoord is gekozen. Log bewust uit: de gebruiker moet daarna opnieuw inloggen.
     recoveryMode = false; signupMode = false;
     // Verwijder de eenmalige herstelgegevens uit de adresbalk na een geslaagde wijziging.
     window.history.replaceState({}, document.title, window.location.pathname);
-    renderAuthMode(); setAuthMessage("Wachtwoord aangepast. Je bent nu ingelogd.");
-    window.setTimeout(() => hideAuth(), 900); return;
+    await supabaseClient.auth.signOut({ scope: "local" });
+    currentUser = null; renderAccount(); renderAuthMode();
+    document.querySelector("#authPassword").value = "";
+    setAuthMessage("Wachtwoord aangepast. Log nu in met je e-mailadres en nieuwe wachtwoord.");
+    showAuth(); return;
   }
   if (signupMode && !result.data.session) {
     setAuthMessage("Controleer je e-mail en bevestig je account. Log daarna hier in.");
@@ -246,7 +250,8 @@ async function sendPasswordReset() {
   const email = document.querySelector("#authEmail").value.trim();
   if (!email) { setAuthMessage("Vul eerst je e-mailadres in."); return; }
   setAuthMessage("Herstellink wordt verstuurd…");
-  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}${window.location.pathname}` });
+  // De extra parameter maakt de herstelstroom herkenbaar, ook wanneer iOS de link via Safari opent.
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}${window.location.pathname}?recover=1` });
   setAuthMessage(error ? error.message : "Controleer je e-mail voor de link om je wachtwoord te wijzigen.");
 }
 
